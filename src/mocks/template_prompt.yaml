@@ -1,0 +1,9 @@
+prompt_template:
+  description: >
+    Descripción del funcionamiento del prompt
+  system: |
+    Información del sistema que guía al modelo en la generación de respuestas.
+  user: |
+    Datos personalizables para el usuario final que se integran en la plantilla.
+  schema:
+    type: OBJECT

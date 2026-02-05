@@ -22,7 +22,7 @@ from google.genai.types import (
 # ---------------------------------------------------------------------
 
 from src.services.base import LLMProvider
-from src.core.tokens import save_llm_usage
+from src.decorators.token_usage import gemini_token_usage
 
 
 class Gemini(LLMProvider):
@@ -35,7 +35,10 @@ class Gemini(LLMProvider):
         "webp": "image/webp",
     }
 
-    def __init__(self, config: Any) -> None:
+    def __init__(
+        self,
+        config: Any
+    ) -> None:
         """
         Initialize Gemini provider with credentials and configuration.
 
@@ -136,7 +139,7 @@ class Gemini(LLMProvider):
         return filtered_contents
 
 
-    @save_llm_usage(model="gemini-2.5-pro")
+    @gemini_token_usage(model="gemini-2.5-pro")
     def _send_request(self, contents: List[Content], **kwargs):
         """
         Send a request to the Gemini API with the given content and parameters.
@@ -208,24 +211,25 @@ class Gemini(LLMProvider):
 #                                     Standalone execution for testing purposes                                       #
 # --------------------------------------------------------------------------------------------------------------------#
 if __name__ == "__main__":
-    from src.core.formatter import GeminiPromptFormatter
+    from src.formatter.gemini import GeminiPromptFormatter
+    from src.core.tokens import TokenTracker
 
     class ConfigDemo:
-        PATH_DATA = "src/data"
-        PROJECT_ID = "crp-dev-dig-plantillase"
         LOCATION = "us-central1"
         MODEL_NAME = "gemini-2.5-flash"
         TEMPERATURE = 0.4
         TOP_P = 0.5
         MAX_OUTPUT_TOKENS = 8192
-        PROMPTS_PATH = "./src/prompts/prompt_attribute_validation.yaml"
-
-        PROJECT_ID_BQ_AT = "crp-pro-dig-plantillase"
-        SAP_DATA_PATH = "src/data/Sap.xlsx"
+        PROMPTS_PATH = "./src/mocks/template_prompt.yaml"
+        DEFAULT_LLM_USAGE_PATH = "./src/data/cache/cache.json"
 
     config = ConfigDemo()
     gemini = Gemini(config)
-    formatter = GeminiPromptFormatter()
+    TokenTracker(config=config)  # Initialize TokenTracker singleton
+
+    formatter = GeminiPromptFormatter(
+        config=config
+    )
 
     response_1 = gemini.generate_response(
         contents=formatter.format(
@@ -235,8 +239,6 @@ if __name__ == "__main__":
             image_urls=[]
         )
     )
-
-    from src.core.token import TokenTracker
 
     token_usage = TokenTracker().reset()
 
