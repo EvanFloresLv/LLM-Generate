@@ -1,0 +1,113 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.venv/
+.virtualenv/
+.virtual-enviroment/
+env_plantillasV2/
+*.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Enviroment variables
+*.env
+.env*
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# PyCharm / VSCode / other IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.swp
+*.bak
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Logs
+*.log
+logs/
+*.out
+
+# mypy / pytype / pyre
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# Django / Flask stuff
+*.mo
+*.pot
+*.db
+*.sqlite3
+instance/
+.webassets-cache
+
+# Static / media
+staticfiles/
+media/
+
+# Local config
+config.local.*
+secrets.json
+
+# Mac / Linux / Windows system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Other
+*.pkl
+*.sage.py
+
+# Normal Files
+*.json
+*.csv
+*.xlsx
+
+# Node modules
+/node_modules/
