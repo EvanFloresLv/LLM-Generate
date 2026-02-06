@@ -39,6 +39,15 @@ class Config:
         load_dotenv(self._ENV_FILE, override=True)
 
 
+        self.LOCATION = self._getenv("LOCATION", str, required=True)
+        self.MODEL_NAME = self._getenv("MODEL_NAME", str, required=True)
+        self.TEMPERATURE = self._getenv("TEMPERATURE", float, required=True)
+        self.TOP_P = self._getenv("TOP_P", float, required=True)
+        self.MAX_OUTPUT_TOKENS = self._getenv("MAX_OUTPUT_TOKENS", int, required=True)
+        self.PROMPTS_PATH = self._getenv("PROMPTS_PATH", str, required=True)
+        self.DEFAULT_LLM_USAGE_PATH = self._getenv("DEFAULT_LLM_USAGE_PATH", str, required=True)
+
+
     # --------------------------------------------------
     # Helpers
     # --------------------------------------------------

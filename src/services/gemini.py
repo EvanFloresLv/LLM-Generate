@@ -3,6 +3,7 @@
 # ---------------------------------------------------------------------
 import copy
 from types import SimpleNamespace
+from threading import Lock
 from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------
@@ -14,15 +15,14 @@ from google.genai.types import (
     Content,
     GenerateContentConfig,
     SafetySetting,
-    Tool
+    Tool,
 )
 
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-
 from src.services.base import LLMProvider
-from src.decorators.token_usage import gemini_token_usage
+from src.decorators.usage import token_usage
 
 
 class Gemini(LLMProvider):
@@ -35,24 +35,51 @@ class Gemini(LLMProvider):
         "webp": "image/webp",
     }
 
+    _instance: "Gemini | None" = None
+    _lock = Lock()
+
+    def __new__(
+        cls,
+        config: Any = None
+    ):
+        """
+        Singleton instance creation.
+
+        Args:
+            config: Configuration for the Gemini instance.
+
+        Returns:
+            Gemini: The singleton instance of the Gemini class.
+        """
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._instance._initialized = False
+        return cls._instance
+
+
     def __init__(
         self,
         config: Any
     ) -> None:
         """
-        Initialize Gemini provider with credentials and configuration.
+        Initialize the Gemini instance.
 
         Args:
-            config (Any): Configuration object containing credentials paths and model settings.
+            config: Configuration for the Gemini instance.
 
         Returns:
             None
         """
+        if self._initialized:
+            return  # Prevent re-init in singleton
 
         if isinstance(config, dict):
             self._config = SimpleNamespace(**config)
         else:
             self._config = config
+
+        self._model_name = getattr(self._config, "MODEL_NAME", "gemini-2.5-flash")
 
         self._credentials, self._project_id = default(
             scopes=[
@@ -62,22 +89,25 @@ class Gemini(LLMProvider):
         )
 
         self._client: Optional[genai.Client] = None
-        self._model_config: Optional[GenerateContentConfig] = None
         self._tools: List[Tool] = []
         self._provider_name = "gemini"
 
+        self._initialized = True
+
+    # -----------------------------------------------------------------
+    # Client + config
+    # -----------------------------------------------------------------
 
     def _create_safety_settings(self) -> List[SafetySetting]:
         """
-        Define Gemini safety settings with relaxed thresholds.
+        Create safety settings for the Gemini instance.
 
         Args:
             None
 
         Returns:
-            List[SafetySetting]: List of safety settings with thresholds OFF.
+            List[SafetySetting]: A list of safety settings for the Gemini instance.
         """
-
         categories = [
             "HARM_CATEGORY_HATE_SPEECH",
             "HARM_CATEGORY_DANGEROUS_CONTENT",
@@ -88,16 +118,6 @@ class Gemini(LLMProvider):
 
 
     def initialize_client(self) -> genai.Client:
-        """
-        Initialize Gemini client with credentials.
-
-        Args:
-            None
-
-        Returns:
-            genai.Client: Initialized Gemini client.
-        """
-
         if self._client is None:
             self._client = genai.Client(
                 vertexai=True,
@@ -107,50 +127,77 @@ class Gemini(LLMProvider):
             )
         return self._client
 
+    # -----------------------------------------------------------------
+    # Helpers
+    # -----------------------------------------------------------------
 
     def _remove_images(self, contents: List[Content]) -> List[Content]:
         """
-        Remove image contents from the list.
+        Removes image parts from Gemini contents.
+        Useful for fallback when URLs are rejected.
 
         Args:
-            contents (List[Content]): The list of content to filter.
+            contents: A list of Content objects to process.
 
         Returns:
-            List[Content]: The filtered list of content without images.
+            List[Content]: A list of Content objects without image parts.
         """
-        filtered_contents = []
+        filtered_contents: List[Content] = []
 
         for content in contents:
             content_copy = copy.deepcopy(content)
-            parts = []
+            new_parts = []
 
-            for part in getattr(content_copy, "parts", []):
+            for part in getattr(content_copy, "parts", []) or []:
+
+                # Dict-like parts
                 if isinstance(part, dict):
-                    if any(k in part for k in ["url", "image_url", "image", "image_data"]):
+                    if any(k in part for k in ("url", "image_url", "image", "image_data", "file_data", "inline_data")):
                         continue
-                elif hasattr(part, ("url", "image_url", "image", "image_data")):
+                    new_parts.append(part)
                     continue
-                parts.append(part)
 
-            if parts:
-                content_copy.parts = parts
+                # Object-like parts
+                is_image_part = any(
+                    hasattr(part, attr)
+                    for attr in ("url", "image_url", "image", "image_data", "file_data", "inline_data")
+                )
+
+                if not is_image_part:
+                    new_parts.append(part)
+
+            if new_parts:
+                content_copy.parts = new_parts
                 filtered_contents.append(content_copy)
 
         return filtered_contents
 
+    # -----------------------------------------------------------------
+    # Core request
+    # -----------------------------------------------------------------
 
-    @gemini_token_usage(model="gemini-2.5-pro")
+    @token_usage(provider="gemini")
     def _send_request(self, contents: List[Content], **kwargs):
         """
-        Send a request to the Gemini API with the given content and parameters.
+        Sends a request to the Gemini model and returns the response.
+
+        IMPORTANT:
+        - This function must return either:
+            response
+          OR
+            (response, input_tokens)
+        depending on how your decorator is implemented.
+
+        In your current TokenTracker approach, returning just response is enough,
+        because usage_metadata already contains token usage.
 
         Args:
-            contents (List[Content]): The list of content to send in the request.
-            **kwargs: Additional keyword arguments to customize the request.
+            contents: A list of Content objects to process.
 
         Returns:
-            Tuple[str, Optional[UsageMetadata]]: The response from the Gemini API and its usage metadata.
+            Union[Response, Tuple[Response, int]]: The response from the Gemini model, and optionally the input token count.
         """
+
         client = self.initialize_client()
 
         config = GenerateContentConfig(
@@ -160,32 +207,39 @@ class Gemini(LLMProvider):
             safety_settings=self._create_safety_settings(),
             response_modalities=kwargs.get("response_modalities", ["TEXT"]),
             response_mime_type=kwargs.get("mime_type", "application/json"),
-            response_schema=kwargs.get("response_schema"),
+            response_schema=kwargs.get("response_schema", None),
         )
 
         response = client.models.generate_content(
-            model=self._config.MODEL_NAME,
+            model=self._model_name,
             contents=contents,
             config=config,
         )
 
-        if not response or not response.text:
+        if not response or not getattr(response, "text", None):
             raise ValueError("Empty response from Gemini model")
 
         return response
 
+    # -----------------------------------------------------------------
+    # Public API
+    # -----------------------------------------------------------------
 
-    def generate_response(self, contents: List[Content], **kwargs) -> str:
+    def generate_response(
+        self,
+        contents: List[Content],
+        **kwargs
+    ) -> str:
         """
-        Generates a response from the Gemini API for the given content.
+        Generates a response from the Gemini model.
 
         Args:
-            contents (List[Content]): The list of content to send in the request.
-            **kwargs: Additional keyword arguments to customize the request.
+            contents: A list of Content objects to process.
 
         Returns:
-            str: The response from the Gemini API.
+            str: The generated response text.
         """
+
         if not contents:
             raise ValueError("Contents must be a non-empty list")
 
@@ -197,22 +251,21 @@ class Gemini(LLMProvider):
             error_msg = str(e)
 
             if "URL_REJECTED" in error_msg or "INVALID_ARGUMENT" in error_msg:
-
                 filtered_contents = self._remove_images(contents)
+
                 if not filtered_contents:
                     raise RuntimeError("All contents were removed after filtering images.")
 
-                response = self._send_request(filtered_contents)
+                response = self._send_request(filtered_contents, **kwargs)
                 return response.text
 
-            raise
+            raise RuntimeError(f"Unexpected error occurred: {error_msg}")
 
-# --------------------------------------------------------------------------------------------------------------------#
-#                                     Standalone execution for testing purposes                                       #
-# --------------------------------------------------------------------------------------------------------------------#
+
 if __name__ == "__main__":
-    from src.formatter.gemini import GeminiPromptFormatter
+
     from src.core.tokens import TokenTracker
+    from src.formatter.gemini import GeminiPromptFormatter
 
     class ConfigDemo:
         LOCATION = "us-central1"
@@ -225,31 +278,20 @@ if __name__ == "__main__":
 
     config = ConfigDemo()
     gemini = Gemini(config)
-    TokenTracker(config=config)  # Initialize TokenTracker singleton
 
-    formatter = GeminiPromptFormatter(
-        config=config
-    )
+    TokenTracker(config=config)  # Initialize TokenTracker singleton
+    formatter = GeminiPromptFormatter(config=config)
 
     response_1 = gemini.generate_response(
         contents=formatter.format(
-            prompt={
-                "user": "Hola, ¿cómo estás?"
-            },
-            image_urls=[]
+            prompt={"user": "Hola, ¿cómo estás?"}, image_urls=[]
         )
     )
-
     token_usage = TokenTracker().reset()
-
     response_2 = gemini.generate_response(
         contents=formatter.format(
-            prompt={
-                "user": "¿Qué es IA?"
-            },
-            image_urls=[]
+            prompt={"user": "¿Qué es IA?"}, image_urls=[]
         )
     )
-
     print(response_1)
     print(response_2)

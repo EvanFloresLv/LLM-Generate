@@ -3,10 +3,16 @@
 # ---------------------------------------------------------------------
 import os
 import json
-from typing import Any, Optional, Dict
-from datetime import datetime
+from dataclasses import asdict
+from typing import Any, Optional
+from datetime import datetime, timezone
 from threading import Lock
 from tempfile import NamedTemporaryFile
+
+# ---------------------------------------------------------------------
+# Internal application imports
+# ---------------------------------------------------------------------
+from src.schemas.token_schema import TokenUsage, HistoryItem
 
 
 class TokenTracker:
@@ -22,16 +28,39 @@ class TokenTracker:
     # Singleton construction
     # -----------------------------------------------------------------
 
-    def __new__(cls, config: Optional[Any] = None):
+    def __new__(
+        cls,
+        config: Optional[Any] = None
+    ):
+        """
+        Creates a new instance of the TokenTracker.
+
+        Args:
+            config: The configuration object containing model and path information.
+
+        Returns:
+            None
+        """
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                cls._config = config
                 cls._instance._initialized = False
         return cls._instance
 
 
-    def __init__(self, config: Optional[Any] = None):
+    def __init__(
+        self,
+        config: Optional[Any] = None
+    ):
+        """
+        Initializes the token tracker.
+
+        Args:
+            config: The configuration object containing model and path information.
+
+        Returns:
+            None
+        """
         if self._initialized:
             return
 
@@ -54,56 +83,87 @@ class TokenTracker:
     # Internal state
     # -----------------------------------------------------------------
 
-    def _init_cache(self):
-        self.cache: Dict[str, Any] = {
-            "model": self._model,
-            "calls": 0,
-            "total_tokens": {
-                "output_tokens": 0,
-                "image_tokens": 0,
-                "text_tokens": 0,
-                "thought_tokens": 0,
-            },
-            "history": [],
-        }
+    def _init_cache(self) -> None:
+        """
+        Initializes the cache for token usage.
+        """
+        self.cache: TokenUsage = TokenUsage(model=self._model)
 
     # -----------------------------------------------------------------
     # Public API
     # -----------------------------------------------------------------
 
-    def add_usage(self, token_count: int, token_type: str):
-        if token_type not in self.cache["total_tokens"]:
+    def add_usage(
+        self,
+        token_count: int,
+        token_type: str
+    ) -> None:
+        """
+        Adds token usage to the tracker.
+
+        Args:
+            token_count: The number of tokens used.
+            token_type: The type of tokens used (e.g., "input", "output").
+
+        Returns:
+            None
+        """
+        token_count = int(token_count)
+
+        if not hasattr(self.cache.tokens, token_type):
             raise ValueError(f"Unknown token type: {token_type}")
 
         with self._data_lock:
-            self.cache["total_tokens"][token_type] += int(token_count)
-            self.cache["history"].append(
-                {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "token_type": token_type,
-                    "token_count": int(token_count),
-                }
+            # Update per-type
+            current = getattr(self.cache.tokens, token_type)
+            setattr(self.cache.tokens, token_type, current + token_count)
+
+            # Update total
+            self.cache.total_tokens += token_count
+
+            # Add history item
+            self.cache.history.append(
+                HistoryItem(
+                    timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    token_type=token_type,
+                    token_count=token_count,
+                )
             )
 
-
-    def increment_call(self):
+    def increment_call(self) -> None:
+        """
+        Increments the call count for the current pipeline run.
+        """
         with self._data_lock:
-            self.cache["calls"] += 1
+            self.cache.calls += 1
 
     # -----------------------------------------------------------------
     # Persistence (atomic write)
     # -----------------------------------------------------------------
 
-    def save(self):
+    def save(self) -> None:
+        """
+        Saves the current token usage data to a file.
+        """
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
 
+        payload = asdict(self.cache)
+
         with NamedTemporaryFile("w", delete=False, encoding="utf-8") as tmp:
-            json.dump(self.cache, tmp, indent=2)
+            json.dump(payload, tmp, indent=2)
             temp_path = tmp.name
 
         os.replace(temp_path, self.path)
 
+    # -----------------------------------------------------------------
+    # Reset
+    # -----------------------------------------------------------------
 
-    def reset(self):
+    def reset(self) -> TokenUsage:
+        """
+        Resets cache and returns a snapshot of the previous usage.
+        """
         with self._data_lock:
+            snapshot = self.cache
             self._init_cache()
+            return snapshot
