@@ -2,6 +2,7 @@
 # Standard library
 # ---------------------------------------------------------------------
 import copy
+from dataclasses import asdict
 from types import SimpleNamespace
 from threading import Lock
 from typing import Any, Dict, List, Optional
@@ -177,7 +178,11 @@ class Gemini(LLMProvider):
     # -----------------------------------------------------------------
 
     @token_usage(provider="gemini")
-    def _send_request(self, contents: List[Content], **kwargs):
+    def _send_request(
+        self,
+        contents: List[Content],
+        **kwargs
+    ):
         """
         Sends a request to the Gemini model and returns the response.
 
@@ -210,6 +215,11 @@ class Gemini(LLMProvider):
             response_schema=kwargs.get("response_schema", None),
         )
 
+        input_tokens = client.models.count_tokens(
+            model=self._model_name,
+            contents=contents
+        )
+
         response = client.models.generate_content(
             model=self._model_name,
             contents=contents,
@@ -219,7 +229,7 @@ class Gemini(LLMProvider):
         if not response or not getattr(response, "text", None):
             raise ValueError("Empty response from Gemini model")
 
-        return response
+        return (response, input_tokens)
 
     # -----------------------------------------------------------------
     # Public API
@@ -244,8 +254,8 @@ class Gemini(LLMProvider):
             raise ValueError("Contents must be a non-empty list")
 
         try:
-            response = self._send_request(contents, **kwargs)
-            return response.text
+            response, token_usage = self._send_request(contents, **kwargs)
+            return response.text, asdict(token_usage)
 
         except Exception as e:
             error_msg = str(e)
@@ -256,8 +266,8 @@ class Gemini(LLMProvider):
                 if not filtered_contents:
                     raise RuntimeError("All contents were removed after filtering images.")
 
-                response = self._send_request(filtered_contents, **kwargs)
-                return response.text
+                response, token_usage = self._send_request(filtered_contents, **kwargs)
+                return response.text, asdict(token_usage)
 
             raise RuntimeError(f"Unexpected error occurred: {error_msg}")
 
@@ -274,7 +284,7 @@ if __name__ == "__main__":
         TOP_P = 0.5
         MAX_OUTPUT_TOKENS = 8192
         PROMPTS_PATH = "./src/mocks/template_prompt.yaml"
-        DEFAULT_LLM_USAGE_PATH = "./src/data/cache/cache.json"
+        DEFAULT_LLM_USAGE_PATH = "./src/cache/cache.json"
 
     config = ConfigDemo()
     gemini = Gemini(config)
@@ -282,16 +292,18 @@ if __name__ == "__main__":
     TokenTracker(config=config)  # Initialize TokenTracker singleton
     formatter = GeminiPromptFormatter(config=config)
 
-    response_1 = gemini.generate_response(
+    response_1, token_usage_1 = gemini.generate_response(
         contents=formatter.format(
             prompt={"user": "Hola, ¿cómo estás?"}, image_urls=[]
         )
     )
-    token_usage = TokenTracker().reset()
-    response_2 = gemini.generate_response(
+
+    print(response_1, TokenTracker().get_usage())
+
+    response_2, token_usage_2 = gemini.generate_response(
         contents=formatter.format(
             prompt={"user": "¿Qué es IA?"}, image_urls=[]
         )
     )
-    print(response_1)
-    print(response_2)
+
+    print(response_2, TokenTracker().get_usage())

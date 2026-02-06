@@ -130,6 +130,15 @@ class TokenTracker:
                 )
             )
 
+
+    def get_usage(self) -> dict[str, Any]:
+        """
+        Returns the current token usage statistics.
+        """
+        with self._data_lock:
+            return asdict(self.cache)
+
+
     def increment_call(self) -> None:
         """
         Increments the call count for the current pipeline run.

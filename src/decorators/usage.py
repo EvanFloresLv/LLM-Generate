@@ -78,7 +78,7 @@ def token_usage(
                 tracker.add_usage(usage.tokens.thought, "thought")
 
             tracker.save()
-            return response
+            return response, usage
 
         return wrapper
 

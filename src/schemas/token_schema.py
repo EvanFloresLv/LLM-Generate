@@ -1,7 +1,6 @@
 # ---------------------------------------------------------------------
 # Standard library
 # ---------------------------------------------------------------------
-from datetime import datetime
 from dataclasses import dataclass, field
 
 @dataclass
