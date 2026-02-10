@@ -30,7 +30,8 @@ class TokenTracker:
 
     def __new__(
         cls,
-        config: Optional[Any] = None
+        model_name: Optional[str] = None,
+        path: Optional[str] = None
     ):
         """
         Creates a new instance of the TokenTracker.
@@ -50,7 +51,8 @@ class TokenTracker:
 
     def __init__(
         self,
-        config: Optional[Any] = None
+        model_name: Optional[str] = None,
+        path: Optional[str] = None
     ):
         """
         Initializes the token tracker.
@@ -64,16 +66,12 @@ class TokenTracker:
         if self._initialized:
             return
 
-        if config is None:
-            raise ValueError("Config must be provided on first initialization")
+        if model_name is None:
+            raise ValueError("Model name must be provided on first initialization")
 
-        self._model = getattr(config, "MODEL_NAME", "unknown")
-        self._default_path = getattr(
-            config,
-            "DEFAULT_LLM_USAGE_PATH",
-            "./llm_usage.json",
-        )
-        self.path = self._default_path
+        self._model = model_name
+        self._default_path = f"./llm_usage_{model_name}.json"
+        self.path = path or self._default_path
 
         self._data_lock = Lock()
         self._init_cache()

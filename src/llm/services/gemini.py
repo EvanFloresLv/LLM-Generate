@@ -95,6 +95,11 @@ class Gemini(LLMProvider):
 
         self._initialized = True
 
+        TokenTracker(
+            model_name=self._model_name,
+            path=getattr(self._config, "DEFAULT_LLM_USAGE_PATH", None)
+        )
+
     # -----------------------------------------------------------------
     # Client + config
     # -----------------------------------------------------------------
@@ -185,16 +190,6 @@ class Gemini(LLMProvider):
     ):
         """
         Sends a request to the Gemini model and returns the response.
-
-        IMPORTANT:
-        - This function must return either:
-            response
-          OR
-            (response, input_tokens)
-        depending on how your decorator is implemented.
-
-        In your current TokenTracker approach, returning just response is enough,
-        because usage_metadata already contains token usage.
 
         Args:
             contents: A list of Content objects to process.
@@ -288,8 +283,6 @@ if __name__ == "__main__":
 
     config = ConfigDemo()
     gemini = Gemini(config)
-
-    TokenTracker(config=config)  # Initialize TokenTracker singleton
     formatter = GeminiPromptFormatter(config=config)
 
     response_1, token_usage_1 = gemini.generate_response(

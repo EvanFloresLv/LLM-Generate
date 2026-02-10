@@ -3,9 +3,12 @@ anyio==4.12.1
 certifi==2026.1.4
 cffi==2.0.0
 charset-normalizer==3.4.4
+colorlog==6.10.1
 cryptography==46.0.4
 distro==1.9.0
 dotenv==0.9.9
+-e git+https://github.com/EvanFloresLv/LLM-Generate.git@2b3ea9473344b5d59d98f0d36479e2b68de66da5#egg=evan_llm_generate
+evan-logger==0.1.1
 exceptiongroup==1.3.1
 google-ai-generativelanguage==0.6.15
 google-api-core==2.29.0
@@ -35,6 +38,7 @@ pyasn1==0.6.2
 pyasn1_modules==0.4.2
 pycparser==3.0
 pydantic==2.12.5
+pydantic-settings==2.12.0
 pydantic_core==2.41.5
 Pygments==2.19.2
 pyparsing==3.3.2
