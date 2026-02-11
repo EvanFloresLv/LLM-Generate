@@ -11,12 +11,19 @@ async def main() -> None:
     sdk.registry.load_plugins()
 
     resp = await sdk.chat(
-        messages=[("user", "Hola, ¿Cómo estás?")],
+        messages=[("model", "Eres un profesor de programación"), ("user", "Hola, ¿Cómo estás?")],
         provider="gemini",
         model="gemini-2.5-flash",
     )
 
+    emb = await sdk.embed(
+        input=["Hola, ¿Cómo estás?"],
+        provider="gemini",
+        model="text-multilingual-embedding-002",
+    )
+
     print(resp.content)
+    print(emb.vectors)
 
 
 def main_sync() -> None:
@@ -31,7 +38,7 @@ def main_sync() -> None:
     ))
 
     resp = sdk.chat(
-        messages=[("user", "Hola, ¿Cómo estás?")],
+        messages=[{"model", "Eres un profesor"}, ("user", "Hola, ¿Cómo estás?")],
         provider="gemini",
         model="gemini-2.5-flash",
     )
@@ -40,5 +47,5 @@ def main_sync() -> None:
 
 
 if __name__ == "__main__":
-    main_sync()
+    # main_sync()
     asyncio.run(main())

@@ -4,10 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
-
-Role = Literal["user", "assistant", "system"]
 
 @dataclass(frozen=True, slots=True)
 class Usage:

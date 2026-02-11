@@ -13,7 +13,7 @@ from typing import Any, Iterator, Literal
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-from llm_sdk.domain.models import Role, Usage
+from llm_sdk.domain.models import Usage
 
 
 ChatPartType = Literal[
@@ -127,7 +127,7 @@ class ChatMessage:
         parts: Multimodal parts.
     """
 
-    role: Role
+    role: str
     content: str = ""
     parts: list[ChatPart] | None = None
 
