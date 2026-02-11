@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass, field
 
 # ---------------------------------------------------------------------
 # Third-party libraries
@@ -13,32 +13,34 @@ from logger.logger import Logger
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
+from llm_sdk.context import Context
 from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStream
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
-from llm_sdk.context import Context
 from llm_sdk.exceptions import ValidationError
-from llm_sdk.registry import ProviderRegistry
+from llm_sdk.providers.base import BaseLLMClient as LLMClient
+from llm_sdk.providers.registry import ProviderRegistry
 from llm_sdk.retries import with_retries
 from llm_sdk.settings import SDKSettings, load_settings
 
-
-Logger().configure()
 
 @dataclass(slots=True)
 class LLM:
     """
     Main SDK entry point.
 
-    This class:
-    - selects provider + model via registry
-    - validates requests
-    - applies retries
-    - logs structured events
+    Responsibilities:
+    - Provider/model selection via registry
+    - Request validation
+    - Retries and error normalization
+    - Structured logging
     """
 
     registry: ProviderRegistry
     settings: SDKSettings
-    logger: Logger = Logger()
+    logger: Logger = field(default_factory=Logger)
+
+    # Internal cache: reuse provider clients (important for HTTP sessions).
+    _clients: dict[str, LLMClient] = field(default_factory=dict, init=False, repr=False)
 
     @classmethod
     def default(cls) -> "LLM":
@@ -48,8 +50,40 @@ class LLM:
         Returns:
             LLM
         """
-        return cls(registry=ProviderRegistry(), settings=load_settings())
+        settings = load_settings()
+        logger = Logger()
+        logger.configure()
 
+        return cls(
+            registry=ProviderRegistry(),
+            settings=settings,
+            logger=logger,
+        )
+
+    @classmethod
+    def from_settings(cls, settings: SDKSettings, *, registry: ProviderRegistry | None = None) -> "LLM":
+        """
+        Build an SDK instance from settings.
+
+        Args:
+            settings: SDKSettings
+            registry: Optional ProviderRegistry
+
+        Returns:
+            LLM
+        """
+        logger = Logger()
+        logger.configure()
+
+        return cls(
+            registry=registry or ProviderRegistry(),
+            settings=settings,
+            logger=logger,
+        )
+
+    # -----------------------------------------------------------------
+    # Public API
+    # -----------------------------------------------------------------
 
     def chat(
         self,
@@ -73,11 +107,9 @@ class LLM:
         Returns:
             ChatResponse
         """
-        chat_log = self.logger.bind("chat")
+        log = self.logger.bind("chat")
 
-        prov = provider or self.settings.default_provider
-        mod = model or self.settings.default_model
-
+        prov, mod = self._resolve_provider_and_model(provider, model)
         self.registry.resolve_model(prov, mod)
 
         req = ChatRequest(
@@ -87,21 +119,20 @@ class LLM:
             max_output_tokens=max_output_tokens,
         )
 
-        self._validate_chat(req)
+        validate_chat_request(req)
 
-        client = self.registry.get(prov).factory()
         ctx = Context(provider=prov, model=mod)
+        log.info(f"chat.request | {asdict(ctx)}")
 
-        chat_log.info(f"chat.request | {asdict(ctx)}")
+        client = self._get_client(prov)
 
         def call() -> ChatResponse:
             return client.chat(req)
 
         resp = with_retries(fn=call, provider=prov, retry_policy=self.settings.retries)
 
-        chat_log.info(f"chat.response | {asdict(ctx)}")
+        log.info(f"chat.response | {asdict(ctx)}")
         return resp
-
 
     def embed(
         self,
@@ -121,29 +152,26 @@ class LLM:
         Returns:
             EmbeddingResponse
         """
-        embed_log = self.logger.bind("embed")
+        log = self.logger.bind("embed")
 
-        prov = provider or self.settings.default_provider
-        mod = model or self.settings.default_model
-
+        prov, mod = self._resolve_provider_and_model(provider, model)
         self.registry.resolve_model(prov, mod)
 
         req = EmbeddingRequest(model=mod, input=input)
-        self._validate_embed(req)
+        validate_embedding_request(req)
 
-        client = self.registry.get(prov).factory()
         ctx = Context(provider=prov, model=mod)
+        log.info(f"embed.request | {asdict(ctx)}")
 
-        embed_log.info(f"embed.request | {asdict(ctx)}")
+        client = self._get_client(prov)
 
         def call() -> EmbeddingResponse:
             return client.embed(req)
 
         resp = with_retries(fn=call, provider=prov, retry_policy=self.settings.retries)
 
-        embed_log.info(f"embed.response | {asdict(ctx)}")
+        log.info(f"embed.response | {asdict(ctx)}")
         return resp
-
 
     def stream_chat(
         self,
@@ -156,6 +184,10 @@ class LLM:
         """
         High-level streaming chat API.
 
+        Notes:
+            Streaming retries are not done per-chunk.
+            If you want, you can add a "handshake retry" wrapper.
+
         Args:
             messages: List of (role, content).
             provider: Provider override.
@@ -163,13 +195,11 @@ class LLM:
             temperature: Sampling temperature.
 
         Returns:
-            Iterator[ChatStreamEvent]
+            ChatStream
         """
-        stream_chat_log = self.logger.bind("stream_chat")
+        log = self.logger.bind("stream_chat")
 
-        prov = provider or self.settings.default_provider
-        mod = model or self.settings.default_model
-
+        prov, mod = self._resolve_provider_and_model(provider, model)
         self.registry.resolve_model(prov, mod)
 
         req = ChatRequest(
@@ -178,74 +208,131 @@ class LLM:
             temperature=temperature,
         )
 
-        self._validate_chat(req)
+        validate_chat_request(req)
 
-        client = self.registry.get(prov).factory()
+        client = self._get_client(prov)
         ctx = Context(provider=prov, model=mod)
 
-        stream_chat_log.info(f"stream.request | {asdict(ctx)}")
+        log.info(f"stream.request | {asdict(ctx)}")
 
-        # streaming: no retries at chunk level (simpler + safe)
+        # No per-chunk retries (safe).
         for event in client.stream_chat(req):
             yield event
             if event.done:
-                stream_chat_log.info(f"stream.done | {asdict(ctx)}")
+                log.info(f"stream.done | {asdict(ctx)}")
                 return
 
+    # -----------------------------------------------------------------
+    # Internal helpers
+    # -----------------------------------------------------------------
 
-    def _validate_chat(self, request: ChatRequest) -> None:
+    def _resolve_provider_and_model(
+        self,
+        provider: str | None,
+        model: str | None,
+    ) -> tuple[str, str]:
         """
-        Validate chat request.
+        Resolve provider/model using defaults from settings.
 
         Args:
-            request: ChatRequest
+            provider: Optional provider override
+            model: Optional model override
 
-        Raises:
-            ValidationError
+        Returns:
+            (provider, model)
         """
-        if not request.messages:
-            raise ValidationError("messages cannot be empty")
+        prov = provider or self.settings.default_provider
+        mod = model or self.settings.default_model
 
-        for m in request.messages:
-            parts = m.normalized_parts()
-            if not parts:
-                raise ValidationError("message parts cannot be empty")
+        if not prov:
+            raise ValidationError("provider cannot be empty")
+        if not mod:
+            raise ValidationError("model cannot be empty")
 
-            has_any = False
+        return prov, mod
 
-            for part in parts:
-                if part.type == "text" and part.text and part.text.strip():
-                    has_any = True
-                elif part.type in ("image_url", "file_uri") and (part.url or part.uri):
-                    has_any = True
-                elif part.type == "image_bytes" and part.data:
-                    has_any = True
-
-            if not has_any:
-                raise ValidationError("message parts must contain at least one valid part")
-
-        if request.temperature < 0.0 or request.temperature > 2.0:
-            raise ValidationError("temperature must be between 0 and 2")
-
-
-    def _validate_embed(self, request: EmbeddingRequest) -> None:
+    def _get_client(self, provider: str) -> LLMClient:
         """
-        Validate embedding request.
+        Get or create a cached client for a provider.
 
         Args:
-            request: EmbeddingRequest
+            provider: Provider name
 
-        Raises:
-            ValidationError
+        Returns:
+            LLMClient
         """
-        if not request.input:
-            raise ValidationError("input cannot be empty")
+        cached = self._clients.get(provider)
+        if cached is not None:
+            return cached
 
-        if any(not x.strip() for x in request.input):
-            raise ValidationError("input texts cannot be empty")
+        spec = self.registry.get(provider)
+        client = spec.factory()
+
+        self._clients[provider] = client
+        return client
 
 
-def _msg(role: str, content: str):
+# ---------------------------------------------------------------------
+# Validators (should live in llm_sdk/validators/*.py)
+# ---------------------------------------------------------------------
+
+def validate_chat_request(request: ChatRequest) -> None:
+    """
+    Validate chat request.
+
+    Args:
+        request: ChatRequest
+
+    Raises:
+        ValidationError
+    """
+    if not request.messages:
+        raise ValidationError("messages cannot be empty")
+
+    for m in request.messages:
+        parts = m.normalized_parts()
+        if not parts:
+            raise ValidationError("message parts cannot be empty")
+
+        has_any = False
+
+        for part in parts:
+            if part.type == "text" and part.text and part.text.strip():
+                has_any = True
+            elif part.type in ("image_url", "file_uri") and (part.url or part.uri):
+                has_any = True
+            elif part.type == "image_bytes" and part.data:
+                has_any = True
+
+        if not has_any:
+            raise ValidationError("message parts must contain at least one valid part")
+
+    if request.temperature < 0.0 or request.temperature > 2.0:
+        raise ValidationError("temperature must be between 0 and 2")
+
+
+def validate_embedding_request(request: EmbeddingRequest) -> None:
+    """
+    Validate embedding request.
+
+    Args:
+        request: EmbeddingRequest
+
+    Raises:
+        ValidationError
+    """
+    if not request.input:
+        raise ValidationError("input cannot be empty")
+
+    if any(not x.strip() for x in request.input):
+        raise ValidationError("input texts cannot be empty")
+
+
+# ---------------------------------------------------------------------
+# Message helper
+# ---------------------------------------------------------------------
+
+def _msg(role: str, content: str) -> ChatMessage:
     """
     Create a chat message.
 
@@ -256,5 +343,4 @@ def _msg(role: str, content: str):
     Returns:
         ChatMessage
     """
-
     return ChatMessage(role=role, content=content)

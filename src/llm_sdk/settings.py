@@ -16,6 +16,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from llm_sdk.retries import RetryPolicy
 from llm_sdk.timeouts import TimeoutConfig
 
+from llm_sdk.providers.gemini.settings import GeminiSettings
+
 
 class SDKSettings(BaseSettings):
     """
@@ -35,6 +37,8 @@ class SDKSettings(BaseSettings):
         extra="ignore",
     )
 
+    gemini: GeminiSettings = GeminiSettings()
+
     env: Literal["dev", "prod"] = "dev"
 
     default_provider: str = "noop"
@@ -44,11 +48,11 @@ class SDKSettings(BaseSettings):
     timeouts: TimeoutConfig = TimeoutConfig()
 
 
-def load_settings() -> SDKSettings:
+def load_settings(**kwargs) -> SDKSettings:
     """
     Load SDK settings.
 
     Returns:
         SDKSettings
     """
-    return SDKSettings()
+    return SDKSettings(**kwargs)

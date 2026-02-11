@@ -19,7 +19,7 @@ from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStre
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 from llm_sdk.domain.models import Usage
 from llm_sdk.exceptions import ProviderError
-from llm_sdk.providers.base import AsyncBaseLLMClient
+from llm_sdk.providers.async_base import AsyncBaseLLMClient
 from llm_sdk.timeouts import TimeoutConfig
 
 

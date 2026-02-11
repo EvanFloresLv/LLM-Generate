@@ -14,7 +14,7 @@ from importlib.metadata import entry_points
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-from llm_sdk.registry import ProviderRegistry
+from llm_sdk.providers.registry import ProviderRegistry
 from llm_sdk.settings import SDKSettings
 
 

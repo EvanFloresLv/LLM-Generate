@@ -51,7 +51,7 @@ async def with_async_retries(
     *,
     fn: Callable[[], Awaitable[T]],
     provider: str,
-    policy: AsyncRetryPolicy
+    retry_policy: AsyncRetryPolicy
 ) -> T:
     """
     Execute an async function with retry policy.
@@ -73,13 +73,13 @@ async def with_async_retries(
 
     last_error: ProviderError | None = None
 
-    for attempt in range(1, policy.max_attempts + 1):
+    for attempt in range(1, retry_policy.max_attempts + 1):
         try:
             return await fn()
         except ProviderError as e:
             last_error = e
-            if not e.is_retryable or attempt >= policy.max_attempts:
+            if not e.is_retryable or attempt >= retry_policy.max_attempts:
                 raise
-            await asyncio.sleep(policy.compute_delay(attempt))
+            await asyncio.sleep(retry_policy.compute_delay(attempt))
 
     raise TimeoutError(f"[{provider}] retries exhausted: {last_error}")

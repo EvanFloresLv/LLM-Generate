@@ -20,15 +20,18 @@ from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStre
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 from llm_sdk.exceptions import ValidationError
 from llm_sdk.lifecycle import AsyncResourceManager
-from llm_sdk.plugin_loader import load_provider_plugins
-from llm_sdk.registry import ProviderRegistry
+
+from llm_sdk.providers.async_base import AsyncBaseLLMClient
+from llm_sdk.providers.async_registry import ProviderRegistry
+
 from llm_sdk.settings import SDKSettings, load_settings
+from llm_sdk.plugin_loader import load_provider_plugins
 
 Logger().configure()
 
 
 @dataclass(frozen=True)
-class AsyncSDK:
+class AsyncLLM:
     """
     Async SDK entry point.
 
@@ -48,12 +51,12 @@ class AsyncSDK:
     logger: Logger = Logger()
 
     @classmethod
-    def default(cls) -> "AsyncSDK":
+    def default(cls) -> "AsyncLLM":
         """
         Build default AsyncLLM instance.
 
         Returns:
-            AsyncSDK
+            AsyncLLM
         """
         return cls(registry=ProviderRegistry(), settings=load_settings())
 
@@ -108,7 +111,14 @@ class AsyncSDK:
         prov = provider or self.settings.default_provider
         mod = model or self.settings.default_model
 
-        self.registry.resolve_model(prov, mod)
+        factory = self.registry.get(prov)
+        spec = factory.spec()
+
+        if not spec.supports_chat:
+            raise ValidationError(f"provider '{prov}' does not support chat")
+
+        if not spec.is_async:
+            raise ValidationError(f"provider '{prov}' is not async (is_async=False)")
 
         req = ChatRequest(
             model=mod,
@@ -156,7 +166,14 @@ class AsyncSDK:
         prov = provider or self.settings.default_provider
         mod = model or self.settings.default_model
 
-        self.registry.resolve_model(prov, mod)
+        factory = self.registry.get(prov)
+        spec = factory.spec()
+
+        if not spec.supports_embeddings:
+            raise ValidationError(f"provider '{prov}' does not support embeddings")
+
+        if not spec.is_async:
+            raise ValidationError(f"provider '{prov}' is not async (is_async=False)")
 
         req = EmbeddingRequest(model=mod, input=input)
         self._validate_embed(req)
@@ -200,7 +217,14 @@ class AsyncSDK:
         prov = provider or self.settings.default_provider
         mod = model or self.settings.default_model
 
-        self.registry.resolve_model(prov, mod)
+        factory = self.registry.get(prov)
+        spec = factory.spec()
+
+        if not spec.supports_streaming:
+            raise ValidationError(f"provider '{prov}' does not support streaming")
+
+        if not spec.is_async:
+            raise ValidationError(f"provider '{prov}' is not async (is_async=False)")
 
         req = ChatRequest(
             model=mod,
@@ -220,7 +244,7 @@ class AsyncSDK:
                 return
 
 
-    async def _get_provider_client(self, provider: str):
+    async def _get_provider_client(self, provider: str) -> AsyncBaseLLMClient:
         """
         Get cached provider client or create a new one.
 
@@ -230,18 +254,20 @@ class AsyncSDK:
         Returns:
             AsyncBaseLLMClient
         """
-
         cached = self.resources.get_cached(provider)
         if cached is not None:
             return cached
 
-        spec = self.registry.get(provider)
-        client = spec.factory()
+        factory = self.registry.get(provider)
+        client = factory.create(self.settings)
 
-        if not hasattr(client, "chat") or not hasattr(client, "embed"):
-            raise TypeError(f"Provider factory returned invalid client for '{provider}'")
+        # (Opcional) Validación extra de contrato
+        if not isinstance(client, AsyncBaseLLMClient):
+            raise TypeError(
+                f"Provider factory '{provider}' returned invalid client type: {type(client)}"
+            )
 
-        self.resources.cache(provider, client)
+        self.resources.get_cached(provider)
         return client
 
 

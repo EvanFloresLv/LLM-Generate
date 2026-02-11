@@ -90,9 +90,7 @@ dev = [
 ]
 
 [project.entry-points."llm_sdk.providers"]
-# Estos entrypoints serían para plugins externos.
-# En este repo los dejamos comentados.
-# openai = "llm_sdk.providers.openai_plugin:register"
+gemini = "llm_sdk.providers.gemini.plugin:GeminiProviderFactory"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
