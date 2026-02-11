@@ -16,7 +16,7 @@ from typing import Iterator
 from llm_sdk.domain.chat import ChatRequest, ChatResponse, ChatStreamEvent
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 from llm_sdk.domain.models import Usage
-from llm_sdk.providers.base import BaseLLMClient
+from llm_sdk.sync.providers.base import BaseLLMClient
 
 
 class NoopLLMClient(BaseLLMClient):

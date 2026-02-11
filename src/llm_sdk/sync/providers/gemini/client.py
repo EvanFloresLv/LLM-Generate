@@ -19,7 +19,7 @@ from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStre
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 from llm_sdk.domain.models import Usage
 from llm_sdk.exceptions import ProviderError
-from llm_sdk.providers.base import BaseLLMClient
+from llm_sdk.sync.providers.base import BaseLLMClient
 from llm_sdk.timeouts import TimeoutConfig
 
 
@@ -38,11 +38,14 @@ class GeminiLLMClient(BaseLLMClient):
         *,
         location: str,
         scope: list[str] | None = None,
-        timeouts: TimeoutConfig,
+        timeouts: TimeoutConfig | None = None,
     ) -> None:
         self._credentials, self._project = default(scopes=scope)
         self._location = location
         self._timeouts = timeouts
+
+        if not self._timeouts:
+            self._timeouts = TimeoutConfig()
 
         self._client = genai.Client(
             vertexai=True,

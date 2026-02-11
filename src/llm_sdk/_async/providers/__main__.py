@@ -8,7 +8,7 @@ from __future__ import annotations
 # Internal application imports
 # ---------------------------------------------------------------------
 from __future__ import annotations
-from llm_sdk.providers.async_registry import ProviderRegistry
+from llm_sdk._async.providers.async_registry import ProviderRegistry
 
 
 def main() -> None:

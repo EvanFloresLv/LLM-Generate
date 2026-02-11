@@ -14,18 +14,18 @@ from logger.logger import Logger
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-from llm_sdk.async_retries import AsyncRetryPolicy, with_async_retries
+from llm_sdk._async.async_retries import AsyncRetryPolicy, with_async_retries
 from llm_sdk.context import Context
 from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStreamEvent
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 from llm_sdk.exceptions import ValidationError
-from llm_sdk.lifecycle import AsyncResourceManager
+from llm_sdk._async.lifecycle import AsyncResourceManager
 
-from llm_sdk.providers.async_base import AsyncBaseLLMClient
-from llm_sdk.providers.async_registry import ProviderRegistry
+from llm_sdk._async.providers.async_base import AsyncBaseLLMClient
+from llm_sdk._async.providers.async_registry import ProviderRegistry
 
 from llm_sdk.settings import SDKSettings, load_settings
-from llm_sdk.plugin_loader import load_provider_plugins
+from llm_sdk._async.plugin_loader import load_provider_plugins
 
 Logger().configure()
 

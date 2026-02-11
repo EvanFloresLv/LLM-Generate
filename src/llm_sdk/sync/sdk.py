@@ -17,9 +17,9 @@ from llm_sdk.context import Context
 from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStream
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 from llm_sdk.exceptions import ValidationError
-from llm_sdk.providers.base import BaseLLMClient as LLMClient
-from llm_sdk.providers.registry import ProviderRegistry
-from llm_sdk.retries import with_retries
+from llm_sdk.sync.providers.base import BaseLLMClient as LLMClient
+from llm_sdk.sync.providers.registry import ProviderRegistry
+from llm_sdk.sync.retries import with_retries
 from llm_sdk.settings import SDKSettings, load_settings
 
 
@@ -107,7 +107,7 @@ class LLM:
         Returns:
             ChatResponse
         """
-        log = self.logger.bind("chat")
+        log = self.logger.bind("sync_chat")
 
         prov, mod = self._resolve_provider_and_model(provider, model)
         self.registry.resolve_model(prov, mod)
@@ -152,7 +152,7 @@ class LLM:
         Returns:
             EmbeddingResponse
         """
-        log = self.logger.bind("embed")
+        log = self.logger.bind("sync_embed")
 
         prov, mod = self._resolve_provider_and_model(provider, model)
         self.registry.resolve_model(prov, mod)
@@ -197,7 +197,7 @@ class LLM:
         Returns:
             ChatStream
         """
-        log = self.logger.bind("stream_chat")
+        log = self.logger.bind("sync_stream_chat")
 
         prov, mod = self._resolve_provider_and_model(provider, model)
         self.registry.resolve_model(prov, mod)

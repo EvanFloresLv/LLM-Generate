@@ -14,7 +14,7 @@ from importlib.metadata import entry_points
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-from llm_sdk.providers.registry import ProviderRegistry
+from llm_sdk._async.providers.async_registry import ProviderRegistry
 from llm_sdk.settings import SDKSettings
 
 
@@ -39,7 +39,7 @@ def load_provider_plugins(registry: ProviderRegistry, settings: SDKSettings) -> 
     Load provider plugins from entrypoints.
 
     Entry point group:
-        llm_sdk.providers
+        llm_sdk._async.providers
 
     Each entrypoint must be a callable:
         register(registry: ProviderRegistry, settings: SDKSettings) -> None
@@ -52,7 +52,7 @@ def load_provider_plugins(registry: ProviderRegistry, settings: SDKSettings) -> 
         PluginLoadResult
     """
 
-    eps = entry_points().select(group="llm_sdk.providers")
+    eps = entry_points().select(group="llm_sdk._async.providers")
 
     loaded: list[str] = []
     failed: dict[str, str] = {}

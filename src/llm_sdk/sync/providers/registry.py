@@ -14,7 +14,7 @@ from typing import Callable
 # Internal application imports
 # ---------------------------------------------------------------------
 from llm_sdk.exceptions import ModelNotFoundError, ProviderNotFoundError
-from llm_sdk.providers.base import BaseLLMClient
+from llm_sdk.sync.providers.base import BaseLLMClient
 
 
 ProviderFactory = Callable[[], BaseLLMClient]

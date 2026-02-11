@@ -89,8 +89,8 @@ dev = [
   "respx>=0.20",
 ]
 
-[project.entry-points."llm_sdk.providers"]
-gemini = "llm_sdk.providers.gemini.plugin:GeminiProviderFactory"
+[project.entry-points."llm_sdk._async.providers"]
+gemini = "llm_sdk._async.providers.gemini.plugin:GeminiProviderFactory"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

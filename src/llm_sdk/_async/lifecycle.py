@@ -10,7 +10,7 @@ from typing import AsyncIterator
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-from llm_sdk.providers.async_base import AsyncBaseLLMClient
+from llm_sdk._async.providers.async_base import AsyncBaseLLMClient
 
 
 @dataclass(frozen=True)

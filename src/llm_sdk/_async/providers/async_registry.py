@@ -14,7 +14,7 @@ from typing import Protocol
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-from llm_sdk.providers.async_base import AsyncBaseLLMClient
+from llm_sdk._async.providers.async_base import AsyncBaseLLMClient
 from llm_sdk.settings import SDKSettings
 
 
@@ -44,7 +44,7 @@ class ProviderRegistry:
     Registry that loads provider plugins using Python entry points.
     """
 
-    ENTRYPOINT_GROUP = "llm_sdk.providers"
+    ENTRYPOINT_GROUP = "llm_sdk._async.providers"
 
 
     def __init__(self) -> None:

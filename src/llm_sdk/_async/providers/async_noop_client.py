@@ -15,7 +15,7 @@ from typing import AsyncIterator
 from llm_sdk.domain.chat import ChatRequest, ChatResponse, ChatStreamEvent
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 from llm_sdk.domain.models import Usage
-from llm_sdk.providers.async_base import AsyncBaseLLMClient
+from llm_sdk._async.providers.async_base import AsyncBaseLLMClient
 
 
 class AsyncNoopLLMClient(AsyncBaseLLMClient):

@@ -10,9 +10,9 @@ from __future__ import annotations
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-from llm_sdk.providers.async_base import AsyncBaseLLMClient
-from llm_sdk.providers.gemini.async_client import AsyncGeminiLLMClient
-from llm_sdk.providers.async_registry import ProviderSpec
+from llm_sdk._async.providers.async_base import AsyncBaseLLMClient
+from llm_sdk._async.providers.gemini.async_client import AsyncGeminiLLMClient
+from llm_sdk._async.providers.async_registry import ProviderSpec
 from llm_sdk.settings import SDKSettings
 from llm_sdk.timeouts import TimeoutConfig
 

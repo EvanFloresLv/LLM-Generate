@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
-from llm_sdk.async_sdk import AsyncLLM
-from llm_sdk.sdk import LLM
+from llm_sdk._async.async_sdk import AsyncLLM
+from llm_sdk.sync.sdk import LLM
 
 __all__ = ["LLM", "AsyncLLM"]
