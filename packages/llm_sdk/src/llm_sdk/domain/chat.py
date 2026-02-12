@@ -147,6 +147,7 @@ class ChatMessage:
         """
         if self.parts and len(self.parts) > 0:
             return self.parts
+
         return [ChatPart.from_text(self.content)]
 
 

@@ -27,6 +27,7 @@ from llm_sdk.context import Context
 from llm_sdk.exceptions import ValidationError
 from llm_sdk.settings import SDKSettings, load_settings
 from llm_sdk.retries import RetryPolicy, with_async_retries
+from llm_sdk.utils.message_utils import _normalized_messages
 
 
 @dataclass(frozen=True)
@@ -135,7 +136,7 @@ class AsyncLLM:
 
         req = ChatRequest(
             model=mod,
-            messages=[_msg(role, content) for role, content in messages],
+            messages=_normalized_messages(messages),
             temperature=temperature,
             max_output_tokens=max_output_tokens,
         )
@@ -216,7 +217,7 @@ class AsyncLLM:
     async def stream_chat(
         self,
         *,
-        message: list[tuple[str, str]],
+        messages: list[tuple[str, str]],
         provider: str | None = None,
         model: str | None = None,
         temperature: float = 0.2,
@@ -247,7 +248,7 @@ class AsyncLLM:
 
         req = ChatRequest(
             model=mod,
-            messages=[_msg(role, content) for role, content in message],
+            messages=_normalized_messages(messages),
             temperature=temperature,
         )
 
@@ -345,10 +346,3 @@ class AsyncLLM:
 
         if any(not x.strip() for x in request.input):
             raise ValidationError("input texts cannot be empty")
-
-
-def _msg(role: str, content: str) -> ChatMessage:
-    """
-    Create a chat message.
-    """
-    return ChatMessage(role=role, content=content)

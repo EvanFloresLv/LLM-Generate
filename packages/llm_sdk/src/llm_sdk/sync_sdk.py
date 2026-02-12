@@ -15,7 +15,7 @@ from logger.logger import Logger, LoggingSettings
 # ---------------------------------------------------------------------
 from llm_sdk.context import Context
 
-from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStream
+from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStream, ChatPart
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 
 from llm_sdk.providers.sync_base import BaseLLMClient as LLMClient
@@ -24,6 +24,8 @@ from llm_sdk.providers.sync_registry import ProviderRegistry
 from llm_sdk.exceptions import ValidationError
 from llm_sdk.retries import with_retries
 from llm_sdk.settings import SDKSettings, load_settings
+
+from llm_sdk.utils.message_utils import _normalized_messages
 
 
 @dataclass(slots=True)
@@ -124,7 +126,7 @@ class LLM:
 
         req = ChatRequest(
             model=mod,
-            messages=[_msg(role, content) for role, content in messages],
+            messages=_normalized_messages(messages),
             temperature=temperature,
             max_output_tokens=max_output_tokens,
         )
@@ -188,6 +190,7 @@ class LLM:
 
         return resp
 
+
     def stream_chat(
         self,
         *,
@@ -217,7 +220,7 @@ class LLM:
 
         req = ChatRequest(
             model=mod,
-            messages=[_msg(role, content) for role, content in messages],
+            messages=_normalized_messages(messages),
             temperature=temperature,
         )
 
@@ -307,12 +310,14 @@ def validate_chat_request(request: ChatRequest) -> None:
 
     for m in request.messages:
         parts = m.normalized_parts()
+
         if not parts:
             raise ValidationError("message parts cannot be empty")
 
         has_any = False
 
         for part in parts:
+
             if part.type == "text" and part.text and part.text.strip():
                 has_any = True
             elif part.type in ("image_url", "file_uri") and (part.url or part.uri):
@@ -342,21 +347,3 @@ def validate_embedding_request(request: EmbeddingRequest) -> None:
 
     if any(not x.strip() for x in request.input):
         raise ValidationError("input texts cannot be empty")
-
-
-# ---------------------------------------------------------------------
-# Message helper
-# ---------------------------------------------------------------------
-
-def _msg(role: str, content: str) -> ChatMessage:
-    """
-    Create a chat message.
-
-    Args:
-        role: The role of the message sender (user/system).
-        content: The content of the message.
-
-    Returns:
-        ChatMessage
-    """
-    return ChatMessage(role=role, content=content)
