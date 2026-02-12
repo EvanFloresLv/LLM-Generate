@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llm-sdk-provider-gemini"
+version = "0.1.0"
+description = "Gemini provider plugin for llm-sdk."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Your Name" }]
+dependencies = [
+    "llm-sdk>=0.1.0",
+    "google-genai>=1.62.0",
+    "google-auth>=2.48.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "pytest-asyncio>=0.23",
+  "mypy>=1.8",
+  "ruff>=0.3",
+  "respx>=0.20",
+]
+
+[project.entry-points."llm_sdk.providers"]
+gemini = "llm_sdk_provider_gemini.plugin:GeminiProviderFactory"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_sdk_provider_gemini"]
