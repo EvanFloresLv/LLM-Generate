@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from typing import Any, Iterator
+from llm_sdk.exceptions import ValidationError
 
 # ---------------------------------------------------------------------
 # Third-party libraries
@@ -150,17 +151,25 @@ class GeminiLLMClient(BaseLLMClient):
             for part in msg.normalized_parts():
                 if part.type == "text":
                     parts_out.append(Part.from_text(text=part.text or ""))
+                    continue
 
                 elif part.type == "image_url":
-                    # Gemini supports URI (http/https) via from_uri
-                    parts_out.append(Part.from_uri(file_uri=part.url or ""))
+                    uri = (part.url or part.uri or "").strip()
+                    if not uri:
+                        raise ValidationError("image_url part requires 'url' or 'uri'")
+                    parts_out.append(Part.from_uri(file_uri=uri))
+                    continue
 
                 elif part.type == "file_uri":
-                    parts_out.append(Part.from_uri(file_uri=part.uri or ""))
+                    uri = (part.uri or "").strip()
+                    if not uri:
+                        raise ValidationError("file_uri part requires 'uri'")
+                    parts_out.append(Part.from_uri(file_uri=uri))
+                    continue
 
                 elif part.type == "image_bytes":
                     if not part.mime_type:
-                        raise ProviderError(
+                        raise ValidationError(
                             "gemini",
                             "image_bytes requires mime_type (e.g. image/png)",
                             is_retryable=False,
@@ -174,6 +183,7 @@ class GeminiLLMClient(BaseLLMClient):
                             mime_type=part.mime_type,
                         )
                     )
+                    continue
 
                 else:
                     raise ProviderError("gemini", f"unsupported part type: {part.type}", is_retryable=False)
@@ -266,21 +276,3 @@ class GeminiLLMClient(BaseLLMClient):
 
         # fallback: repr
         return {"repr": repr(obj)}
-
-
-if __name__ == "__main__":
-
-    llm = GeminiLLMClient(location="us-central1", timeouts=TimeoutConfig())
-
-    resp = llm.chat(
-        ChatRequest(
-            model="gemini-2.0-flash",
-            messages=[
-                ChatMessage(role="user", content="Write a haiku."),
-            ],
-            temperature=0.5,
-            max_output_tokens=50,
-        )
-    )
-
-    print(resp.content)

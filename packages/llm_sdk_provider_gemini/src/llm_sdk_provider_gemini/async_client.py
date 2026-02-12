@@ -18,7 +18,7 @@ from google.genai.types import Content, Part
 from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStreamEvent
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 from llm_sdk.domain.models import Usage
-from llm_sdk.exceptions import ProviderError
+from llm_sdk.exceptions import ProviderError, ValidationError
 from llm_sdk.providers.async_base import AsyncBaseLLMClient
 from llm_sdk.timeouts import TimeoutConfig
 
@@ -177,37 +177,40 @@ class AsyncGeminiLLMClient(AsyncBaseLLMClient):
 
         for msg in messages:
             role = msg.role
-            if role == "assistant":
-                role = "model"
 
             parts_out: list[Part] = []
 
             for part in msg.normalized_parts():
+
                 if part.type == "text":
                     parts_out.append(Part.from_text(text=part.text or ""))
+                    continue
 
                 elif part.type == "image_url":
-                    parts_out.append(Part.from_uri(file_uri=part.url or ""))
+                    uri = (part.url or part.uri or "").strip()
+                    if not uri:
+                        raise ValidationError("image_url part requires 'url' or 'uri'")
+                    parts_out.append(Part.from_uri(file_uri=uri))
+                    continue
 
                 elif part.type == "file_uri":
-                    parts_out.append(Part.from_uri(file_uri=part.uri or ""))
+                    uri = (part.url or part.uri or "").strip()
+                    if not uri:
+                        raise ValidationError("file_uri part requires 'url' or 'uri'")
+                    parts_out.append(Part.from_uri(file_uri=uri))
+                    continue
 
                 elif part.type == "image_bytes":
                     if not part.mime_type:
-                        raise ProviderError(
-                            "gemini",
-                            "image_bytes requires mime_type (e.g. image/png)",
-                            is_retryable=False,
-                        )
+                        raise ValidationError("image_bytes part requires 'mime_type'")
                     if not part.data:
-                        raise ProviderError("gemini", "image_bytes requires data", is_retryable=False)
+                        raise ValidationError("image_bytes part requires 'data'")
 
-                    parts_out.append(
-                        Part.from_bytes(
-                            data=part.data,
-                            mime_type=part.mime_type,
-                        )
-                    )
+                    parts_out.append(Part.from_bytes(
+                        data=part.data,
+                        mime_type=part.mime_type,
+                    ))
+                    continue
 
                 else:
                     raise ProviderError("gemini", f"unsupported part type: {part.type}", is_retryable=False)
@@ -317,3 +320,24 @@ class AsyncGeminiLLMClient(AsyncBaseLLMClient):
                 return {}
 
         return {"repr": repr(obj)}
+
+
+
+def _normalized_messages(messages: list[ChatMessage | tuple[str, str]]) -> list[ChatMessage]:
+    """
+    Normalize messages to a consistent format.
+
+    Args:
+        messages: List of messages to normalize.
+
+    Returns:
+        List of normalized ChatMessage objects.
+    """
+    normalized_messages: list[ChatMessage] = []
+    for message in messages:
+        if isinstance(message, ChatMessage):
+            normalized_messages.append(message)
+        else:
+            role, content = message
+            normalized_messages.append(_msg(role, content))
+    return normalized_messages

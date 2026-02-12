@@ -1,35 +1,38 @@
 import asyncio
-
 from logger.logger import Logger
-
-from llm_sdk.sync_sdk import LLM
 from llm_sdk.providers.sync_registry import ProviderSpec
-
 from llm_sdk import SyncLLM, AsyncLLM
-
 from llm_sdk_provider_gemini import SyncGeminiClient
+from llm_sdk.domain.chat import ChatMessage, ChatPart
 
 async def main() -> None:
     sdk = AsyncLLM.default(load_plugins=True, logger=logger)
 
     resp = await sdk.chat(
-        messages=[("model", "Eres un profesor de programación"), ("user", "Hola, ¿Cómo estás?")],
+        messages=[
+            ChatMessage(
+                role="user",
+                parts=[
+                    ChatPart(
+                        type="text",
+                        text="¿Qué ves en la imágen?"
+                    ),
+                    ChatPart(
+                        type="image_url",
+                        uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg"
+                    )
+                ]
+            )
+        ],
         provider="gemini",
         model="gemini-2.5-flash",
     )
 
-    emb = await sdk.embed(
-        input=["Hola, ¿Cómo estás?"],
-        provider="gemini",
-        model="text-multilingual-embedding-002",
-    )
-
     print(resp.content)
-    print(emb.vectors)
 
 
 def main_sync() -> None:
-    sdk = LLM.default(logger=logger)
+    sdk = SyncLLM.default(logger=logger)
 
     sdk.registry.register(ProviderSpec(
         name="gemini",
@@ -40,7 +43,21 @@ def main_sync() -> None:
     ))
 
     resp = sdk.chat(
-        messages=[("model", "Eres un profesor"), ("user", "Hola, ¿Cómo estás?")],
+        messages=[
+            ChatMessage(
+                role="user",
+                parts=[
+                    ChatPart(
+                        type="text",
+                        text="¿Qué ves en la imágen?"
+                    ),
+                    ChatPart(
+                        type="image_url",
+                        uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg"
+                    )
+                ]
+            )
+        ],
         provider="gemini",
         model="gemini-2.5-flash",
     )
@@ -51,5 +68,5 @@ Logger().configure()
 logger = Logger()
 
 if __name__ == "__main__":
-    main_sync()
+    # main_sync()
     asyncio.run(main())

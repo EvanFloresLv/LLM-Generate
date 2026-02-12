@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "llm-sdk-provider-gemini"
-version = "0.1.0"
+version = "0.1.2"
 description = "Gemini provider plugin for llm-sdk."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Your Name" }]
 dependencies = [
-    "llm-sdk>=0.1.0",
+    "llm-sdk-core>=0.1.0",
     "google-genai>=1.62.0",
     "google-auth>=2.48.0",
 ]
