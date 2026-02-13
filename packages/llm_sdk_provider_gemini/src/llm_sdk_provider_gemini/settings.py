@@ -27,5 +27,4 @@ class GeminiSettings(BaseSettings):
     )
 
     scopes: list[str] | None = Field(default=None)
-
     location: str = Field(default="us-central1")

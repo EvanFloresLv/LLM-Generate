@@ -11,7 +11,7 @@ from llm_sdk.exceptions import ValidationError
 # ---------------------------------------------------------------------
 from google import genai
 from google.auth import default
-from google.genai.types import Content, Part
+from google.genai.types import Content, Part, GenerateContentConfig
 
 # ---------------------------------------------------------------------
 # Internal application imports
@@ -40,10 +40,12 @@ class GeminiLLMClient(BaseLLMClient):
         location: str,
         scope: list[str] | None = None,
         timeouts: TimeoutConfig | None = None,
+        config: GenerateContentConfig | None = None,
     ) -> None:
         self._credentials, self._project = default(scopes=scope)
         self._location = location
         self._timeouts = timeouts
+        self._config = config
 
         if not self._timeouts:
             self._timeouts = TimeoutConfig()
@@ -67,7 +69,7 @@ class GeminiLLMClient(BaseLLMClient):
             resp = self._client.models.generate_content(
                 model=request.model,
                 contents=contents,
-                config={
+                config=self._config or {
                     "temperature": request.temperature,
                     "max_output_tokens": request.max_output_tokens,
                 },
@@ -76,8 +78,8 @@ class GeminiLLMClient(BaseLLMClient):
             raise ProviderError("gemini", f"provider error: {e}", is_retryable=True) from e
 
         text = getattr(resp, "text", None)
+
         if not text:
-            # Fallback: try extracting from candidates
             text = self._extract_text_fallback(resp)
 
         usage = self._extract_usage(resp)
@@ -90,10 +92,10 @@ class GeminiLLMClient(BaseLLMClient):
         contents = self._to_gemini_contents(request.messages)
 
         try:
-            stream = self._client.models.generate_content_stream(
+            stream = self._client.models.generate_content(
                 model=request.model,
                 contents=contents,
-                config={
+                config=self._config or {
                     "temperature": request.temperature,
                     "max_output_tokens": request.max_output_tokens,
                 },

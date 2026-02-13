@@ -79,6 +79,8 @@ class AsyncGeminiLLMClient(AsyncBaseLLMClient):
                 config={
                     "temperature": request.temperature,
                     "max_output_tokens": request.max_output_tokens,
+                    "response_schema": request.output_schema,
+                    "response_mime_type": request.output_mime_type,
                 },
             )
         except Exception as e:
@@ -113,6 +115,8 @@ class AsyncGeminiLLMClient(AsyncBaseLLMClient):
                 config={
                     "temperature": request.temperature,
                     "max_output_tokens": request.max_output_tokens,
+                    "response_schema": request.output_schema,
+                    "response_mime_type": request.output_mime_type,
                 },
             )
         except Exception as e:
@@ -320,24 +324,3 @@ class AsyncGeminiLLMClient(AsyncBaseLLMClient):
                 return {}
 
         return {"repr": repr(obj)}
-
-
-
-def _normalized_messages(messages: list[ChatMessage | tuple[str, str]]) -> list[ChatMessage]:
-    """
-    Normalize messages to a consistent format.
-
-    Args:
-        messages: List of messages to normalize.
-
-    Returns:
-        List of normalized ChatMessage objects.
-    """
-    normalized_messages: list[ChatMessage] = []
-    for message in messages:
-        if isinstance(message, ChatMessage):
-            normalized_messages.append(message)
-        else:
-            role, content = message
-            normalized_messages.append(_msg(role, content))
-    return normalized_messages
