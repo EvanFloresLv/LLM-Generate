@@ -19,6 +19,8 @@ ChatPartType = Literal[
     "file_uri",
 ]
 
+OutputMimeType = Literal["text/plain", "application/json"]
+
 
 @dataclass(frozen=True, slots=True)
 class ChatPart:
@@ -161,6 +163,8 @@ class ChatRequest:
         messages: Chat messages.
         temperature: Sampling temperature.
         max_output_tokens: Optional limit.
+        output_schema: Optional JSON Schema (provider-agnostic).
+        output_mime_type: Desired output format.
         metadata: Free-form metadata.
     """
 
@@ -168,6 +172,10 @@ class ChatRequest:
     messages: list[ChatMessage]
     temperature: float = 0.2
     max_output_tokens: int | None = None
+
+    output_schema: dict[str, Any] | None = None
+    output_mime_type: OutputMimeType = "application/json"
+
     metadata: dict[str, Any] | None = None
 
 

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from typing import AsyncIterator
+from typing import AsyncIterator, Any
 
 # ---------------------------------------------------------------------
 # Third-party libraries
@@ -16,7 +16,7 @@ from logger.logger import Logger
 # ---------------------------------------------------------------------
 from llm_sdk.lifecycle import AsyncResourceManager
 
-from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStreamEvent
+from llm_sdk.domain.chat import OutputMimeType, ChatRequest, ChatResponse, ChatStreamEvent
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 
 from llm_sdk.providers.async_base import AsyncBaseLLMClient
@@ -108,6 +108,8 @@ class AsyncLLM:
         model: str | None = None,
         temperature: float = 0.2,
         max_output_tokens: int | None = None,
+        output_schema: dict[str, Any] | None = None,
+        output_mime_type: OutputMimeType = "application/json",
     ) -> ChatResponse:
         """
         Async chat API.
@@ -118,6 +120,8 @@ class AsyncLLM:
             model: The model name.
             temperature: The temperature to use for the chat.
             max_output_tokens: The maximum number of output tokens.
+            output_schema: The output schema to use for the chat.
+            output_mime_type: The output MIME type to use for the chat.
 
         Returns:
             ChatResponse: The chat response.
@@ -139,6 +143,8 @@ class AsyncLLM:
             messages=_normalized_messages(messages),
             temperature=temperature,
             max_output_tokens=max_output_tokens,
+            output_schema=output_schema,
+            output_mime_type=output_mime_type,
         )
 
         self._validate_chat(req)
@@ -221,6 +227,8 @@ class AsyncLLM:
         provider: str | None = None,
         model: str | None = None,
         temperature: float = 0.2,
+        output_schema: dict[str, Any] | None = None,
+        output_mime_type: OutputMimeType = "application/json",
     ) -> AsyncIterator[ChatStreamEvent]:
         """
         Async streaming chat API.
@@ -230,6 +238,8 @@ class AsyncLLM:
             provider: The provider name.
             model: The model name.
             temperature: The temperature to use for the chat.
+            output_schema: The output schema to use for the chat.
+            output_mime_type: The output MIME type to use for the chat.
 
         Returns:
             AsyncIterator[ChatStreamEvent]: The streaming chat events.
@@ -250,6 +260,8 @@ class AsyncLLM:
             model=mod,
             messages=_normalized_messages(messages),
             temperature=temperature,
+            output_schema=output_schema,
+            output_mime_type=output_mime_type,
         )
 
         client = await self._get_provider_client(prov)

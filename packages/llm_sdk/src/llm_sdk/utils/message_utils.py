@@ -30,6 +30,7 @@ def _normalized_messages(messages: list[ChatMessage | tuple[str, str]]) -> list[
         List of normalized ChatMessage objects.
     """
     normalized_messages: list[ChatMessage] = []
+
     for message in messages:
         if isinstance(message, ChatMessage):
             normalized_messages.append(message)
