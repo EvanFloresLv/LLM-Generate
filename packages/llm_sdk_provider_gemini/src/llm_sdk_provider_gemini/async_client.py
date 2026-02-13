@@ -17,10 +17,11 @@ from google.genai.types import Content, Part
 # ---------------------------------------------------------------------
 from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStreamEvent
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
-from llm_sdk.domain.models import Usage
 from llm_sdk.exceptions import ProviderError, ValidationError
 from llm_sdk.providers.async_base import AsyncBaseLLMClient
 from llm_sdk.timeouts import TimeoutConfig
+
+from llm_sdk.utils.message_utils import extract_token_usage
 
 
 class AsyncGeminiLLMClient(AsyncBaseLLMClient):
@@ -90,7 +91,7 @@ class AsyncGeminiLLMClient(AsyncBaseLLMClient):
         if not text:
             text = self._extract_text_fallback(resp)
 
-        usage = self._extract_usage(resp)
+        usage = extract_token_usage(resp)
         raw = self._safe_raw(resp)
 
         return ChatResponse(model=request.model, content=text or "", usage=usage, raw=raw)
@@ -122,13 +123,19 @@ class AsyncGeminiLLMClient(AsyncBaseLLMClient):
         except Exception as e:
             raise ProviderError("gemini", f"provider error: {e}", is_retryable=True) from e
 
+        last_usage = None
+
         try:
-            async for chunk in stream:
+            for chunk in stream:
+                usage = extract_token_usage(chunk) or last_usage
+                if usage is not None:
+                    last_usage = usage
+
                 delta = getattr(chunk, "text", None)
                 if delta:
-                    yield ChatStreamEvent(delta=delta, done=False)
+                    yield ChatStreamEvent(delta=delta, done=False, usage=usage)
 
-            yield ChatStreamEvent(delta="", done=True)
+            yield ChatStreamEvent(delta="", done=True, usage=last_usage)
 
         except Exception as e:
             raise ProviderError("gemini", f"stream error: {e}", is_retryable=True) from e
@@ -249,31 +256,6 @@ class AsyncGeminiLLMClient(AsyncBaseLLMClient):
             return [list(values)]
 
         return []
-
-
-    def _extract_usage(self, resp: Any) -> Usage | None:
-        """
-        Extract token usage if available.
-
-        Args:
-            resp: Provider response.
-
-        Returns:
-            Usage if present, else None.
-        """
-        usage = getattr(resp, "usage_metadata", None)
-        if not usage:
-            return None
-
-        prompt = getattr(usage, "prompt_token_count", None)
-        completion = getattr(usage, "candidates_token_count", None)
-        total = getattr(usage, "total_token_count", None)
-
-        return Usage(
-            prompt_tokens=int(prompt) if prompt is not None else None,
-            completion_tokens=int(completion) if completion is not None else None,
-            total_tokens=int(total) if total is not None else None,
-        )
 
 
     def _extract_text_fallback(self, resp: Any) -> str:

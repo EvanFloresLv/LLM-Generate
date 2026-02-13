@@ -6,7 +6,7 @@ from google.genai.types import GenerateContentConfig
 
 from llm_sdk.providers.sync_registry import ProviderSpec
 from llm_sdk import SyncLLM, AsyncLLM
-from llm_sdk_provider_gemini import SyncGeminiClient
+from llm_sdk_provider_gemini import SyncGeminiClient, AsyncGeminiLLMClient
 from llm_sdk.domain.chat import ChatMessage, ChatPart
 
 from llm_sdk.retries import RetryPolicy
@@ -51,7 +51,38 @@ async def main() -> None:
         output_schema=schema,
     )
 
-    print(resp.content)
+    text_out: list[str] = []
+    last_usage = None
+
+    async for ev in sdk.stream_chat(
+        messages=[
+            ChatMessage(
+                role="user",
+                parts=[
+                    ChatPart(type="text", text="¿Qué ves en la imágen?"),
+                    ChatPart(
+                        type="image_url",
+                        uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg",
+                    ),
+                ],
+            )
+        ],
+        provider="gemini",
+        model="gemini-2.5-flash",
+        output_schema=schema,
+    ):
+        if ev.delta:
+            print(ev.delta, end="", flush=True)
+            text_out.append(ev.delta)
+        if ev.usage:
+            last_usage = ev.usage
+        if ev.done:
+            break
+
+    print("\n\n[done]")
+    print("usage:", last_usage)
+    full_text = "".join(text_out)
+    print("full text:", full_text)
 
 
 def main_sync() -> None:
@@ -61,15 +92,18 @@ def main_sync() -> None:
         name="gemini",
         factory=lambda: SyncGeminiClient(
             location=sdk.settings.gemini.location,
-            config=GenerateContentConfig(
-                temperature=0.7,
-                max_output_tokens=1024,
-                response_modalities=["TEXT"],
-                response_mime_type="application/json",
-            ),
         ),
         models={"gemini-2.5-flash"},
     ))
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "sentiment": {"type": "string", "enum": ["positive", "neutral", "negative"]},
+        },
+        "required": ["summary", "sentiment"],
+    }
 
     resp = sdk.chat(
         messages=[
@@ -89,13 +123,47 @@ def main_sync() -> None:
         ],
         provider="gemini",
         model="gemini-2.5-flash",
+        output_schema=schema,
     )
 
     print(resp.content)
 
+    # text_out: list[str] = []
+    # last_usage = None
+    # for ev in sdk.stream_chat(
+    #     messages=[
+    #         ChatMessage(
+    #             role="user",
+    #             parts=[
+    #                 ChatPart(type="text", text="¿Qué ves en la imágen?"),
+    #                 ChatPart(
+    #                     type="image_url",
+    #                     uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg",
+    #                 ),
+    #             ],
+    #         )
+    #     ],
+    #     provider="gemini",
+    #     model="gemini-2.5-flash",
+    #     output_schema=schema,
+    # ):
+    #     if ev.delta:
+    #         text_out.append(ev.delta)
+    #     if ev.usage:
+    #         last_usage = ev.usage
+    #     if ev.done:
+    #         break
+
+    # print("\n\n[done]")
+    # print("usage:", last_usage)
+    # full_text = "".join(text_out)
+    # print("full text:", full_text)
+
+
 Logger().configure()
 logger = Logger()
 
+
 if __name__ == "__main__":
-    # main_sync()
-    asyncio.run(main())
+    main_sync()
+    # asyncio.run(main())
