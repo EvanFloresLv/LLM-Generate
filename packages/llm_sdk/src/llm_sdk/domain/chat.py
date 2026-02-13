@@ -209,6 +209,6 @@ class ChatStreamEvent:
 
     delta: str
     done: bool = False
-
+    usage: Usage | None = None
 
 ChatStream = Iterator[ChatStreamEvent]

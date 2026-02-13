@@ -4,18 +4,19 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 # ---------------------------------------------------------------------
 # Third-party libraries
 # ---------------------------------------------------------------------
-from logger.logger import Logger, LoggingSettings
+from logger.logger import Logger
 
 # ---------------------------------------------------------------------
 # Internal application imports
 # ---------------------------------------------------------------------
 from llm_sdk.context import Context
 
-from llm_sdk.domain.chat import ChatMessage, ChatRequest, ChatResponse, ChatStream, ChatPart
+from llm_sdk.domain.chat import OutputMimeType, ChatRequest, ChatResponse, ChatStream
 from llm_sdk.domain.embeddings import EmbeddingRequest, EmbeddingResponse
 
 from llm_sdk.providers.sync_base import BaseLLMClient as LLMClient
@@ -107,6 +108,8 @@ class LLM:
         model: str | None = None,
         temperature: float = 0.2,
         max_output_tokens: int | None = None,
+        output_schema: dict[str, Any] | None = None,
+        output_mime_type: OutputMimeType = "application/json",
     ) -> ChatResponse:
         """
         High-level chat API.
@@ -129,6 +132,8 @@ class LLM:
             messages=_normalized_messages(messages),
             temperature=temperature,
             max_output_tokens=max_output_tokens,
+            output_mime_type=output_mime_type,
+            output_schema=output_schema,
         )
 
         validate_chat_request(req)
@@ -198,6 +203,9 @@ class LLM:
         provider: str | None = None,
         model: str | None = None,
         temperature: float = 0.2,
+        max_output_tokens: int | None = None,
+        output_schema: dict[str, Any] | None = None,
+        output_mime_type: OutputMimeType = "application/json",
     ) -> ChatStream:
         """
         High-level streaming chat API.
@@ -222,6 +230,9 @@ class LLM:
             model=mod,
             messages=_normalized_messages(messages),
             temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            output_mime_type=output_mime_type,
+            output_schema=output_schema,
         )
 
         validate_chat_request(req)
