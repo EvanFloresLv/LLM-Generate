@@ -93,12 +93,157 @@ pip install llm-sdk-provider-gemini
 
 ## Usage
 
+### Sync quickstart
+
+```python
+from llm_sdk.sync_sdk import SyncSDK
+from llm_sdk.retries import RetryPolicy
+from llm_sdk.providers.sync_registry import ProviderSpec
+from llm_sdk_provider_gemini import SyncGeminiClient
+from llm_sdk.domain.chat import ChatMessage, ChatPart
+
+sdk = SyncSDK.default()
+sdk.registry.register(ProviderSpec(
+    name="gemini",
+    factory=lambda: SyncGeminiClient(
+        location=sdk.settings.gemini.location,
+    ),
+    models={
+        "gemini-2.5-flash",
+        "text-multilingual-embedding-002"
+    },
+))
+```
+
+### Normal chat example
+
+```python
+from llm_sdk.sync_sdk import SyncSDK
+from llm_sdk.retries import RetryPolicy
+from llm_sdk.providers.sync_registry import ProviderSpec
+from llm_sdk_provider_gemini import SyncGeminiClient
+from llm_sdk.domain.chat import ChatMessage, ChatPart
+
+sdk = SyncSDK.default()
+sdk.registry.register(ProviderSpec(
+    name="gemini",
+    factory=lambda: SyncGeminiClient(
+        location=sdk.settings.gemini.location,
+    ),
+    models={
+        "gemini-2.5-flash",
+    },
+))
+
+resp = sdk.chat(
+    messages=[
+        ChatMessage(
+            role="user",
+            parts=[
+                ChatPart(
+                    type="text",
+                    text="¿Qué ves en la imágen?"
+                ),
+                ChatPart(
+                    type="image_url",
+                    uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg"
+                )
+            ]
+        )
+    ],
+    provider="gemini",
+    model="gemini-2.5-flash",
+)
+
+print(resp.content)
+```
+
+### Streaming example
+
+```python
+from llm_sdk.sync_sdk import SyncSDK
+from llm_sdk.retries import RetryPolicy
+from llm_sdk.providers.sync_registry import ProviderSpec
+from llm_sdk_provider_gemini import SyncGeminiClient
+from llm_sdk.domain.chat import ChatMessage, ChatPart
+
+sdk = SyncSDK.default()
+sdk.registry.register(ProviderSpec(
+    name="gemini",
+    factory=lambda: SyncGeminiClient(
+        location=sdk.settings.gemini.location,
+    ),
+    models={
+        "gemini-2.5-flash",
+        "text-multilingual-embedding-002"
+    },
+))
+
+text_out: list[str] = []
+last_usage = None
+for ev in sdk.stream_chat(
+    messages=[
+        ChatMessage(
+            role="user",
+            parts=[
+                ChatPart(type="text", text="¿Qué ves en la imágen?"),
+                ChatPart(
+                    type="image_url",
+                    uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg",
+                ),
+            ],
+        )
+    ],
+    provider="gemini",
+    model="gemini-2.5-flash",
+):
+    if ev.delta:
+        text_out.append(ev.delta)
+    if ev.usage:
+        last_usage = ev.usage
+    if ev.done:
+        break
+
+print("\n\n[done]")
+print("usage:", last_usage)
+full_text = "".join(text_out)
+print("full text:", full_text)
+```
+
+### Embedding example
+
+```python
+from llm_sdk.sync_sdk import SyncSDK
+from llm_sdk.retries import RetryPolicy
+from llm_sdk.providers.sync_registry import ProviderSpec
+from llm_sdk_provider_gemini import SyncGeminiClient
+from llm_sdk.domain.chat import ChatMessage, ChatPart
+
+sdk = SyncSDK.default()
+sdk.registry.register(ProviderSpec(
+    name="gemini",
+    factory=lambda: SyncGeminiClient(
+        location=sdk.settings.gemini.location,
+    ),
+    models={
+        "gemini-2.5-flash",
+        "text-multilingual-embedding-002"
+    },
+))
+
+result = sdk.embed(
+    provider="gemini",
+    model="text-multilingual-embedding-002",
+    input=["Hola mundo", "Hello world"],
+)
+```
+
 ### Async quickstart
 
 ```python
 import asyncio
 from llm_sdk.async_sdk import AsyncSDK
-
+from llm_sdk.domain.chat import ChatMessage, ChatPart
 
 async def main() -> None:
     sdk = AsyncSDK.default()
@@ -107,9 +252,23 @@ async def main() -> None:
     sdk.registry.load_plugins()
 
     resp = await sdk.chat(
+        messages=[
+            ChatMessage(
+                role="user",
+                parts=[
+                    ChatPart(
+                        type="text",
+                        text="¿Qué ves en la imágen?"
+                    ),
+                    ChatPart(
+                        type="image_url",
+                        uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg"
+                    )
+                ]
+            )
+        ],
         provider="gemini",
         model="gemini-2.5-flash",
-        messages=[("user", "Write a haiku about software architecture.")],
     )
 
     print(resp.content)
@@ -124,6 +283,7 @@ if __name__ == "__main__":
 ```python
 import asyncio
 from llm_sdk.async_sdk import AsyncSDK
+from llm_sdk.domain.chat import ChatMessage, ChatPart
 
 
 async def main() -> None:
@@ -131,13 +291,33 @@ async def main() -> None:
     sdk.registry.load_plugins()
 
     async for ev in sdk.stream_chat(
+        messages=[
+            ChatMessage(
+                role="user",
+                parts=[
+                    ChatPart(type="text", text="¿Qué ves en la imágen?"),
+                    ChatPart(
+                        type="image_url",
+                        uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg",
+                    ),
+                ],
+            )
+        ],
         provider="gemini",
         model="gemini-2.5-flash",
-        messages=[("user", "Explain AI in Spanish, in 5 short bullets.")],
     ):
-        print(ev.delta, end="", flush=True)
+        if ev.delta:
+            print(ev.delta, end="", flush=True)
+            text_out.append(ev.delta)
+        if ev.usage:
+            last_usage = ev.usage
+        if ev.done:
+            break
 
-    print("\n[done]")
+    print("\n\n[done]")
+    print("usage:", last_usage)
+    full_text = "".join(text_out)
+    print("full text:", full_text)
 
 
 if __name__ == "__main__":

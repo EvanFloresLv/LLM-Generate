@@ -6,7 +6,7 @@ from google.genai.types import GenerateContentConfig
 
 from llm_sdk.providers.sync_registry import ProviderSpec
 from llm_sdk import SyncLLM, AsyncLLM
-from llm_sdk_provider_gemini import SyncGeminiClient, AsyncGeminiLLMClient
+from llm_sdk_provider_gemini import SyncGeminiClient
 from llm_sdk.domain.chat import ChatMessage, ChatPart
 
 from llm_sdk.retries import RetryPolicy
@@ -93,7 +93,7 @@ def main_sync() -> None:
         factory=lambda: SyncGeminiClient(
             location=sdk.settings.gemini.location,
         ),
-        models={"gemini-2.5-flash"},
+        models={"gemini-2.5-flash", "text-multilingual-embedding-002"},
     ))
 
     schema = {
@@ -105,28 +105,36 @@ def main_sync() -> None:
         "required": ["summary", "sentiment"],
     }
 
-    resp = sdk.chat(
-        messages=[
-            ChatMessage(
-                role="user",
-                parts=[
-                    ChatPart(
-                        type="text",
-                        text="¿Qué ves en la imágen?"
-                    ),
-                    ChatPart(
-                        type="image_url",
-                        uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg"
-                    )
-                ]
-            )
-        ],
-        provider="gemini",
-        model="gemini-2.5-flash",
-        output_schema=schema,
+    print(
+        sdk.embed(
+            provider="gemini",
+            model="text-multilingual-embedding-002",
+            input=["Hola mundo", "Hello world"],
+        )
     )
 
-    print(resp.content)
+    # resp = sdk.chat(
+    #     messages=[
+    #         ChatMessage(
+    #             role="user",
+    #             parts=[
+    #                 ChatPart(
+    #                     type="text",
+    #                     text="¿Qué ves en la imágen?"
+    #                 ),
+    #                 ChatPart(
+    #                     type="image_url",
+    #                     uri="https://verdecora.es/blog/wp-content/uploads/2025/06/cuidados-pato-casa.jpg"
+    #                 )
+    #             ]
+    #         )
+    #     ],
+    #     provider="gemini",
+    #     model="gemini-2.5-flash",
+    #     output_schema=schema,
+    # )
+
+    # print(resp.content)
 
     # text_out: list[str] = []
     # last_usage = None
